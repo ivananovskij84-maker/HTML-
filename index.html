@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocGen AI — скажи, что нужно, и получи документ</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',Arial,sans-serif; background:#0d0d1a; color:#eee; line-height:1.6; }
+  /* --- Капча --- */
+  #gate { position:fixed; inset:0; background:linear-gradient(135deg,#12122a,#1d1440); display:flex; align-items:center; justify-content:center; z-index:100; }
+  .gatebox { background:#171733; border:1px solid #2c2c55; border-radius:16px; padding:34px; text-align:center; max-width:360px; width:92%; }
+  .gatebox h2 { margin-bottom:8px; } .gatebox p { color:#9a9ac2; font-size:14px; margin-bottom:18px; }
+  #capcode { font-size:34px; letter-spacing:6px; font-weight:800; font-family:monospace;
+    background:repeating-linear-gradient(45deg,#251f4d,#251f4d 12px,#2c2c55 12px,#2c2c55 24px);
+    color:#8b7cf7; padding:10px 18px; border-radius:10px; user-select:none; display:inline-block; margin-bottom:16px;
+    text-shadow:1px 2px 0 #3a2f7d; transform:skewX(-6deg); }
+  #gate input { width:100%; padding:12px; background:#0f0f24; border:1px solid #33336b; color:#eee; border-radius:9px; font-size:16px; text-align:center; }
+  #gate button { width:100%; margin-top:12px; padding:13px; background:linear-gradient(135deg,#8b7cf7,#5d4bd8); color:#fff; border:none; border-radius:11px; font-size:16px; font-weight:700; cursor:pointer; }
+  #gateerr { color:#ff7b7b; font-size:13px; min-height:18px; margin-top:8px; }
+  /* --- Основной сайт --- */
+  header { padding:16px 5%; display:flex; justify-content:space-between; align-items:center; background:#12122a; }
+  .logo { font-weight:800; font-size:20px; } .logo span { color:#8b7cf7; }
+  .adminlink { color:#666; font-size:12px; text-decoration:none; }
+  .hero { text-align:center; padding:34px 6% 22px; }
+  .hero h1 { font-size:28px; } .hero h1 span { color:#8b7cf7; }
+  .hero p { color:#a9a9c2; font-size:15px; max-width:600px; margin:8px auto 0; }
+  .wrap { max-width:1000px; margin:0 auto; padding:10px 5% 40px; display:grid; grid-template-columns:1.1fr .9fr; gap:20px; }
+  @media (max-width:800px){ .wrap { grid-template-columns:1fr; } }
+  .panel { background:#171733; border:1px solid #2c2c55; border-radius:16px; padding:20px; }
+  /* --- Чат --- */
+  #chat { height:460px; display:flex; flex-direction:column; }
+  #log { flex:1; overflow-y:auto; padding:6px 2px 12px; }
+  .msg { max-width:92%; padding:10px 14px; border-radius:14px; margin-bottom:10px; font-size:14.5px; white-space:pre-line; }
+  .bot { background:#1f1f42; border:1px solid #2c2c55; border-bottom-left-radius:4px; }
+  .user { background:linear-gradient(135deg,#8b7cf7,#5d4bd8); margin-left:auto; border-bottom-right-radius:4px; }
+  .cinput { display:flex; gap:8px; }
+  .cinput input { flex:1; padding:12px; background:#0f0f24; border:1px solid #33336b; color:#eee; border-radius:9px; font-size:15px; }
+  .cinput button { background:#8b7cf7; color:#fff; border:none; border-radius:9px; padding:0 18px; cursor:pointer; font-size:16px; }
+  .hint { font-size:12px; color:#666a8f; margin-top:8px; }
+  /* --- Документ --- */
+  #doc { max-height:520px; overflow-y:auto; }
+  .slide { background:#fff; color:#1a1a2e; border-radius:12px; padding:20px; margin-bottom:12px; font-size:14.5px; }
+  .slide h3 { color:#5d4bd8; margin-bottom:8px; font-size:17px; }
+  .slide ul { margin-left:18px; }
+  .big { font-size:22px; font-weight:800; color:#0a8f4a; }
+  .docbtns { display:flex; gap:8px; margin-top:10px; }
+  .docbtns button { flex:1; padding:11px; background:#1f1f42; color:#8b7cf7; border:1px solid #8b7cf7; border-radius:10px; cursor:pointer; font-size:13.5px; display:none; }
+  /* --- Админка --- */
+  #admin { display:none; max-width:1000px; margin:0 auto; padding:20px 5% 40px; }
+  #admin table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  #admin th, #admin td { border:1px solid #2c2c55; padding:8px 10px; text-align:left; }
+  #admin th { background:#1f1f42; color:#8b7cf7; }
+  footer { text-align:center; color:#666; padding:20px; font-size:13px; }
+</style>
+</head>
+<body>
+
+<!-- ===== КАПЧА ===== -->
+<div id="gate">
+  <div class="gatebox">
+    <h2>🔐 Проверка</h2>
+    <p>Введите символы с картинки, чтобы попасть на сайт</p>
+    <div id="capcode"></div>
+    <input id="capin" placeholder="Символы с картинки" autocomplete="off">
+    <button onclick="checkCaptcha()">Войти на сайт</button>
+    <div id="gateerr"></div>
+  </div>
+</div>
+
+<!-- ===== САЙТ ===== -->
+<header>
+  <div class="logo">DocGen <span>AI</span></div>
+  <a class="adminlink" href="#admin" onclick="openAdmin()">админ-панель</a>
+</header>
+
+<div class="hero">
+  <h1>Скажи, что нужно — <span>AI сделает</span></h1>
+  <p>Напиши в чат, какой документ тебе нужен и что за бизнес. Ассистент сам задаст вопросы и соберёт презентацию, бизнес-план или отчёт.</p>
+</div>
+
+<div class="wrap">
+  <div class="panel" id="chat">
+    <div id="log"></div>
+    <div class="cinput">
+      <input id="cin" placeholder="Например: сделай презентацию для ателье" onkeydown="if(event.key==='Enter')send()">
+      <button onclick="send()">➤</button>
+    </div>
+    <div class="hint">Команды: «сделай презентацию / бизнес-план / отчёт» · «скачай» · «сохрани» · «статистика»</div>
+  </div>
+
+  <div class="panel" id="doc">
+    <div style="color:#666a8f;font-size:14px;font-style:italic;">Здесь появится готовый документ после генерации.</div>
+  </div>
+</div>
+
+<!-- ===== АДМИНКА ===== -->
+<div id="admin">
+  <div class="panel">
+    <h2 style="margin-bottom:14px;">🛡 Админ-панель</h2>
+    <p style="font-size:13.5px;color:#9a9ac2;margin-bottom:14px;">Журнал визитов на этом устройстве. IP определяется сервисом ipify со стороны браузера посетителя.</p>
+    <table id="vtable"><tr><th>Время</th><th>IP</th><th>Браузер</th><th>Откуда пришёл</th></tr></table>
+    <button onclick="clearLog()" style="margin-top:12px;padding:9px 16px;background:#2c2c55;color:#ff7b7b;border:none;border-radius:9px;cursor:pointer;font-size:13px;">Очистить журнал</button>
+  </div>
+</div>
+
+<footer>© 2026 DocGen AI · Скажи что нужно — получишь результат</footer>
+
+<script>
+// ================= НАСТРОЙКИ =================
+const ADMIN_PASS = 'admin2026'; // ← смени пароль админки здесь
+
+// ================= КАПЧА =================
+const CODE = Array.from({length:5},
